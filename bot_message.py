@@ -147,7 +147,11 @@ class ButtonTransition:
         self.requiered_button = requiered_button
 
     def __call__(self, callback_data):
-        if callback_data == self.requiered_button.callback_data and\
+        # if callback_data == self.requiered_button.callback_data and\
+        #    self.requiered_button in self.calling_post.content:
+        #     return self.next_post
+
+        if callback_data == self.requiered_button.text and\
            self.requiered_button in self.calling_post.content:
             return self.next_post
 

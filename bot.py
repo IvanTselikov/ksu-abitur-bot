@@ -187,19 +187,25 @@ class Bot:
             """Обрабатывает сообщения от пользователя (всё, кроме кнопок)."""
 
             if message.chat.type == 'private':
-                # при получении сообщения от пользователя ему снова отправляются
-                # последние кнопки
-
                 if message.from_user.id in self.user_table:
-                    last_post, last_message_id = self.user_table[message.from_user.id]
-                    self.send(received=message, new_post=last_post)
+                    post, _ = self.user_table[message.from_user.id]
 
-                    # удаляем старые кнопки
-                    # time.sleep(0.5)
-                    # self.bot.delete_message(message.chat.id, last_message_id)
+                    while True:
+                        # получаем новые сообщения для отправки
+                        post = post.get_next(message.text)
+                        if post is None:
+                            # сообщения кончились либо ожидается ответ от пользователя
+                            break
+                        self.send(received=message, new_post=post)
+                        message.text = None
                 else:
-                    # пользователь ещё не начал диалог -> отправляем первый пост
-                    register_new_user(message)
+                    # пользователь ещё не нажал на "Старт" (например, нажал на кнопки,
+                    # пришедшие до перезапуска бота на сервере)
+                    self.bot.send_message(
+                        message.from_user.id,
+                        'Пожалуйста, перезапустите бота, введя команду /start',
+                        timeout=self.TIMEOUT
+                    )
             else:
                 # удаление сообщений, отправленных во время режима тишины
                 if message.chat.id in self.moderated_chats:
@@ -302,14 +308,22 @@ class Bot:
             with open(new_post.content, 'rb') as content:
                 sent = self.bot.send_sticker(received.chat.id, content, timeout=self.TIMEOUT)
         elif isinstance(new_post, ButtonsPost):
-            markup_inline = types.InlineKeyboardMarkup()
+            # markup_inline = types.InlineKeyboardMarkup()
+            # for button in new_post.content:
+            #     new_item = types.InlineKeyboardButton(text=button.text,
+            #                                           callback_data=button.callback_data)
+            #     markup_inline.add(new_item)
+            # sent = self.bot.send_message(received.chat.id, new_post.caption,
+            #                                reply_markup=markup_inline, timeout=self.TIMEOUT,
+            #                                parse_mode='HTML')
+
+            markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
             for button in new_post.content:
-                new_item = types.InlineKeyboardButton(text=button.text,
-                                                      callback_data=button.callback_data)
-                markup_inline.add(new_item)
+                new_item = types.KeyboardButton(text=button.text)
+                markup.add(new_item)
             sent = self.bot.send_message(received.chat.id, new_post.caption,
-                                           reply_markup=markup_inline, timeout=self.TIMEOUT,
-                                           parse_mode='HTML')
+                                        reply_markup=markup, timeout=self.TIMEOUT,
+                                        parse_mode='HTML')
         elif isinstance(new_post, GroupPost):
             if not new_post.content:  # сгруппированное сообщение содержит только текст
                 sent = self.bot.send_message(
