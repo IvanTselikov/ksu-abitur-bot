@@ -1,3 +1,5 @@
+# файл предназначен для запуска бота на сервере replit
+
 from project_controller import Project
 import config
 from flask import Flask
