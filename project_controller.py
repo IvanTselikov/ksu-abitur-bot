@@ -1,11 +1,14 @@
 import os
 import shutil
 import pickle
-from code_analyzer import CodeAnalyzer
-import parser
 import subprocess
+import sys
+import threading
 from bot import Bot
-import config as cfg
+from code_analyzer import CodeAnalyzer
+from helper import *
+import bot_parser
+import config
 
 
 class Project:
@@ -18,14 +21,15 @@ class Project:
 
     def __init__(self, path):
         """Создаёт новый проект по указанному пути."""
-        self.path = path  # путь до проекта
-        self.res = path + os.sep + self.RES_NAME  # путь до папки с ресурсами
-        self.scn = path + os.sep + self.SCN_FILENAME  # путь до файла с кодом
-        self.bin = path + os.sep + self.BIN_NAME  # путь до папки со скомпилированным проектом
+        self.path = format_dir_path(path)  # путь до проекта
+        self.res = self.path + self.RES_NAME  # путь до папки с ресурсами
+        self.scn = self.path + self.SCN_FILENAME  # путь до файла с кодом
+        self.bin = self.path + self.BIN_NAME  # путь до папки со скомпилированным проектом
         self.obj = self.bin + os.sep + self.OBJ_FILENAME  # путь до файла со скомпилированными объектами
-        self.name = os.path.basename(self.path)  # название проекта
+        self.name = os.path.basename(path)  # название проекта
         self.code_analyzer = CodeAnalyzer()
-        self.process = None
+        self.process = None  # процесс, в котором запущен бот (если запущен в новом терминале)
+        self.bot = None  # бот (если запущен в текущем терминале)
         self.create_temp()
 
 
@@ -113,22 +117,14 @@ class Project:
         """Удаляет файл ресурсов из проекта."""
         os.remove(self.res + os.sep + name)
 
-
-    def run(self, recompile, new_console=True):
-        """Собирает .exe-файл с ботом"""
-        if new_console:
-            args = [cfg.COMPILER_PATH, self.path]
-            if recompile:
-                args.insert(1, '-c')
-            if not cfg.IS_EXE:
-                args.insert(0, 'python')
-            self.process = subprocess.Popen(args, creationflags=subprocess.CREATE_NEW_CONSOLE)
-        else:
+    
+    def _runner(self, recompile):
+        try:
             if recompile:
                 code = self.get_code()
                 analyzed, _ = self.code_analyzer.get_words(code)
                 words_for_parsing = self.code_analyzer.get_words_for_parsing(analyzed)
-                scenery = parser.getScenery(words_for_parsing, self.res + os.sep)
+                scenery = bot_parser.getScenery(words_for_parsing, self.res + os.sep)
                 serialized = pickle.dumps(scenery)
                 with open(self.obj, 'wb') as f:
                     f.write(serialized)
@@ -136,16 +132,56 @@ class Project:
             with open(self.obj, 'rb') as f:
                 token, first_message = pickle.load(f)
             print('=== БОТ ЗАПУЩЕН! ===')
-            bot = Bot(token, first_message)
+            self.bot = Bot(token, first_message)
+            self.bot.start()
+        except Exception as e:
+            print(e)
+            input('Для выхода нажмите любую клавишу...')
+
+
+    def run(self, recompile, new_console=True):
+        """Запускает бота."""
+        if new_console:
+            # запускаем бота в новой консоли
+            args = ['python', config.COMPILER_PATH, self.path]
+            if recompile:
+                args.insert(2, '-c')
+            self.process = subprocess.Popen(args, creationflags=subprocess.CREATE_NEW_CONSOLE)
+        else:
+            # запускаем бота в текущей консоли в новом потоке
+            t = threading.Thread(target=self._runner, args=[recompile])
+            t.start()
 
 
     def stop(self):
         """Останавливает бота."""
-        self.process.kill()
-        self.process = None
+        if self.process:
+            # закрываем консоль
+            self.process.kill()
+            self.process = None
+        elif self.bot.is_alive():
+            # останавливаем поток, слушающий бота
+            self.bot.stop()
+            self.bot = None
 
 
     def is_alive(self):
-        if self.process and self.process.poll() is None:
-            return True
-        return False
+        return (self.process and self.process.poll() is None)\
+            or (self.bot and self.bot.is_alive())
+
+
+
+# создание проекта по указанному пути
+if __name__ == '__main__':
+    path = sys.argv[1]
+    if not os.path.isdir(path):
+        try:
+            os.makedirs(path)
+        except:
+            print('Некорректный путь: {}'.format(path))
+    if os.path.isdir(path):
+        if not Project.is_project(path):
+            project = Project(path)
+            print('Проект "{}" успешно создан!'.format(project.name))
+        else:
+            print('В папке "{}" уже создан проект.'.format(path))

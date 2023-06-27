@@ -1,9 +1,9 @@
 from telebot import TeleBot, types
-from bot_message import *
 import json
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from threading import Thread
+from bot_message import *
 from helper import *
 import config
 
@@ -175,8 +175,8 @@ class Bot:
                     )
                 
                 # удаление старых кнопок
-                time.sleep(0.5)
-                self.bot.delete_message(call.message.chat.id, call.message.id)
+                # time.sleep(0.5)
+                # self.bot.delete_message(call.message.chat.id, call.message.id)
 
 
         @self.bot.message_handler(content_types=[
@@ -195,8 +195,8 @@ class Bot:
                     self.send(received=message, new_post=last_post)
 
                     # удаляем старые кнопки
-                    time.sleep(0.5)
-                    self.bot.delete_message(message.chat.id, last_message_id)
+                    # time.sleep(0.5)
+                    # self.bot.delete_message(message.chat.id, last_message_id)
                 else:
                     # пользователь ещё не начал диалог -> отправляем первый пост
                     register_new_user(message)
@@ -222,40 +222,53 @@ class Bot:
 
                         if is_silence_now:
                             self.bot.delete_message(message.chat.id, message.message_id)
+    
+
+    def _shedule_loop(self):
+        # каждую минуту процедура ищет чаты, в которых в эту минуту по расписанию
+        # начинается режим тишины, и отправляет сообщение о начале режима тишины
+        # в эти чаты
+
+        while True:
+            # вычисляем время до начала очередной минуты, и засыпаем на это время
+            sec_delta = 60 - datetime.now().second
+            time.sleep(sec_delta)
+
+            hour = datetime.now().hour
+            minute = datetime.now().minute
+
+            for chat_id in self.moderated_chats:
+                (start_hour, start_minute), (end_hour,end_minute), is_active = self.moderated_chats[chat_id]
+                if is_active:
+                    if hour == start_hour and minute == start_minute:
+                        self.bot.send_message(
+                            chat_id,
+                            text="🤫 Режим тишины в чате. Сообщения в период с {:02d}:{:02d} до {:02d}:{:02d} будут автоматически удаляться.".format(
+                                start_hour, start_minute, end_hour, end_minute
+                            ),
+                            timeout=self.TIMEOUT
+                        )
         
 
-        # запуск расписания отправки сообщений о начале режима тишины
-
-        def shedule_loop():
-            # каждую минуту процедура ищет чаты, в которых в эту минуту по расписанию
-            # начинается режим тишины, и отправляет сообщение о начале режима тишины
-            # в эти чаты
-
-            while True:
-                # вычисляем время до начала очередной минуты, и засыпаем на это время
-                sec_delta = 60 - datetime.now().second
-                time.sleep(sec_delta)
-
-                hour = datetime.now().hour
-                minute = datetime.now().minute
-
-                for chat_id in self.moderated_chats:
-                    (start_hour, start_minute), (end_hour,end_minute), is_active = self.moderated_chats[chat_id]
-                    if is_active:
-                        if hour == start_hour and minute == start_minute:
-                            self.bot.send_message(
-                                chat_id,
-                                text="🤫 Режим тишины в чате. Сообщения в период с {:02d}:{:02d} до {:02d}:{:02d} будут автоматически удаляться.".format(
-                                    start_hour, start_minute, end_hour, end_minute
-                                ),
-                                timeout=self.TIMEOUT
-                            )
-
+    def start(self):
+        """Запускает бота в текущем потоке."""
+        
         # запускаем цикл расписания в отдельном потоке
-        new_thread = Thread(target=shedule_loop)
+        new_thread = Thread(target=self._shedule_loop)
         new_thread.start()
 
-        self.bot.infinity_polling(timeout=self.TIMEOUT)  # начинаем слушать бота
+        # начинаем слушать бота
+        self.bot.infinity_polling(timeout=self.TIMEOUT)
+
+
+    def stop(self):
+        """Останавливает бота."""
+        self.bot.stop_bot()
+    
+
+    def is_alive(self):
+        """Возвращает True, если бот запущен в данный момент."""
+        return self.bot.get_me()
 
 
     def send(self, received, new_post):

@@ -1,16 +1,11 @@
 import wx  # pip install -U --pre -f https://wxpython.org/Phoenix/snapshot-builds/ wxPython
 import wx.stc
-# import codecs
+import webbrowser as wb
+
 from code_analyzer import CodeAnalyzer
 from project_controller import Project
 from editor import Editor
-from help import HelpDialog, DocDialog
-import parser
-from threading import Thread
-import os
-import sys
-import webbrowser as wb
-import config as cfg
+import config
 
 
 class MainWindow(wx.Frame):
@@ -22,8 +17,8 @@ class MainWindow(wx.Frame):
         self.createMenuBar()
 
         self.app_name = title
-        self.SetTitle(f'{self.app_name} - {cfg.DEFAULT_APPNAME}')
-        self.SetIcon(wx.Icon(cfg.IMAGE_PATH + 'icon.ico'))
+        self.SetTitle(f'{self.app_name} - {config.DEFAULT_APPNAME}')
+        self.SetIcon(wx.Icon(config.IMAGE_PATH + 'icon.ico'))
 
         self.main_spltr = wx.SplitterWindow(self, wx.ID_ANY, style=wx.SP_LIVE_UPDATE)
 
@@ -51,7 +46,7 @@ class MainWindow(wx.Frame):
         self.create_project_dd = wx.DirDialog(self, 'Создание проекта...', '',
                                            wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST)
         self.save_changes_md = wx.MessageDialog(self, 'Сохранить изменения?', 
-                                                cfg.DEFAULT_APPNAME,
+                                                config.DEFAULT_APPNAME,
                                                 wx.YES_NO | wx.CANCEL |
                                                 wx.YES_DEFAULT | wx.ICON_INFORMATION)
         self.add_res_fd = wx.FileDialog(self, 'Добавление ресурсов...', 

@@ -1,4 +1,5 @@
 import re
+import os
 
 
 time_pattern = re.compile('^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$')
@@ -24,3 +25,7 @@ def extract_time(time):
     если переданная строка имела неверный формат."""
 
     return tuple(map(int, time.split(':'))) if time_pattern.match(time) else None
+
+
+def format_dir_path(path):
+    return path if path.endswith(os.sep) else path + os.sep

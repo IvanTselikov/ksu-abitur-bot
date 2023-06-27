@@ -1,5 +1,6 @@
 import re
 
+
 class CodeAnalyzer:
     # типы слов
     COMMENT = 0  # комментарий
