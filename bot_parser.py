@@ -42,6 +42,7 @@ def getScenery(words, resPath):
     print('=== НАЧИНАЕМ СБОРКУ ПРОЕКТА. СОБИРАЕМ БЛОКИ... ===')
     ind = 0 # индекс текущего кортежа
     while True:
+        print(words)
         if words[ind][0]==CodeAnalyzer.BOT and words[ind][2]==CodeAnalyzer.KEYWORD:
             ind += 1
             if words[ind][2]==CodeAnalyzer.STRING:

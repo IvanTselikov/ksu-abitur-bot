@@ -1,7 +1,7 @@
 TODO
 main_window.py
 editor.py
-bot/bin/obj.bin
+# bot/bin/obj.bin
 groupIDs.json
 
 # Byte-compiled / optimized / DLL files
