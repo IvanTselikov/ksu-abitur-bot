@@ -16,6 +16,7 @@ try:
 
     @app.route('/')
     def home():
+        logger.info('Запрос к серверу.')
         if project and project.is_alive():
             response = 'Сервер запущен, бот работает.'
             logger.info(response)
