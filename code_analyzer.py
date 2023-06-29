@@ -37,7 +37,7 @@ class CodeAnalyzer:
     DOUBLE_DASH = '->'
     EXCLAM = '!'
     QUOTE = '"'
-    NEWLINE = os.linesep  # '\r\n' в Windows, '\n' в Linux
+    NEWLINE = '\r\n'
     SPACE = ' '
 
     # ключевые слова
@@ -100,6 +100,10 @@ class CodeAnalyzer:
         line_number = 1  # номер текущей строки
         current_word = ''  # текущее исследуемое слово
         current_type = self.UNKNOWN  # тип текущего исследуемого слова
+
+        # заменяем все символы перевода строки на \r\n (нужно для
+        # корректной работы в Linux)
+        code = self.NEWLINE.join(code.splitlines())
 
         symbol = ''
         for i, symbol in enumerate(code):
