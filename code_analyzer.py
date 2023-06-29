@@ -1,4 +1,5 @@
 import re
+import os
 
 
 class CodeAnalyzer:
@@ -36,8 +37,7 @@ class CodeAnalyzer:
     DOUBLE_DASH = '->'
     EXCLAM = '!'
     QUOTE = '"'
-    # CARRIAGE_RETURN = '\r'
-    NEWLINE = '\r\n'
+    NEWLINE = os.linesep  # '\r\n' в Windows, '\n' в Linux
     SPACE = ' '
 
     # ключевые слова
@@ -48,10 +48,7 @@ class CodeAnalyzer:
     # показывает количество пробелов для каждого отступа
     INDENT_SPACE_COUNT = 4
 
-    def __init__(self):
-        pass
 
-    # TODO: исправить выделение
     def autocomplete(self, code, analyzed, last_symbol, last_line_number):
         completion = ''
         # добавление отступа при переходе на новую строку

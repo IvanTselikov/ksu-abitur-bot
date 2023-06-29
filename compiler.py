@@ -1,9 +1,14 @@
 import sys
 from project_controller import Project
 import config
+from helper import get_logger
+from bot_parser import BotParsingException
+import traceback
 
 
 if __name__ == '__main__':
+    logger = get_logger('compiler')
+
     project = None
 
     try:
@@ -37,5 +42,6 @@ if __name__ == '__main__':
         if project and project.is_alive():
             project.stop()
         
-        print(e)
+        logger.error(e if isinstance(e, BotParsingException) else traceback.format_exc())
+        
         input('Для выхода нажмите любую клавишу...')

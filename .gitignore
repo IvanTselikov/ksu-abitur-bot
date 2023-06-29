@@ -1,7 +1,9 @@
 TODO
 main_window.py
 editor.py
-groupIDs.json
+# groupIDs.json
+# bot/bin/obj.bin
+logs/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

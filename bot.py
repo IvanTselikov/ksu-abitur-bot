@@ -1,10 +1,13 @@
+import telebot
 from telebot import TeleBot, types
 import json
 import time
 from datetime import datetime
 from threading import Thread
+import logging
+import sys
 from bot_message import *
-from helper import *
+from helper import decode_json, extract_time, get_logger, prepare_text_for_logging
 import config
 
 
@@ -24,6 +27,26 @@ class Bot:
         """
 
         self.bot = TeleBot(token or os.getenv('TOKEN'))
+
+        # настройка логгера TeleBot
+        telebot.logger.handlers.clear()
+        telebot_logger = get_logger(
+            'telebot',
+            base_logger=telebot.logger,
+            level=logging.ERROR
+        )
+
+        # не выводим stacktrace ошибки в консоль, записываем только в файл
+        console_handler = next(
+            h for h in telebot_logger.handlers if isinstance(h, logging.StreamHandler)
+        )
+        console_handler.addFilter(lambda record: not record.getMessage().startswith('Exception traceback:'))
+
+
+        # логгер для собственных сообщений
+        self.logger = get_logger(__name__)
+
+
         self.user_table = {}  # таблица с записями вида: "user_id: [post, last_message_id]"
         self.start_post = start_post
 
@@ -48,6 +71,12 @@ class Bot:
         def register_new_user(message):
             if message.chat.type == 'private':
                 # приватный чат для ответов на вопросы
+
+                self.logger.info('Пользователь {} ({}) начал общение с ботом.'.format(
+                    message.from_user.id,
+                    message.from_user.username,
+                ))
+                                
                 # заносим пользователя в таблицу активных пользователей
 
                 # делаем запись о новом игроке или обновляем старую запись
@@ -72,6 +101,13 @@ class Bot:
             """Включает режим тишины в чате по расписанию."""
 
             if message.chat.type != 'private':
+                self.logger.info('Группа {} - отправлена команда "{}" пользователем {} ({}) ({})'.format(
+                    message.chat.id,
+                    prepare_text_for_logging(message.text),
+                    message.from_user.id,
+                    message.from_user.username,
+                    'админ или создатель чата' if self.is_by_admin(message) else 'не адмим'
+                ))
                 if self.is_by_admin(message):
                     start_time = None
                     end_time = None
@@ -89,11 +125,15 @@ class Bot:
                         end_time = extract_time(args[1])
                     
                     if start_time is None or end_time is None:
-                        self.bot.send_message(
+                        sent = self.bot.send_message(
                             message.chat.id,
-                            'Пожалуйста, укажите временные рамки режима тишины в формате чч:мм. Команда:\n/moder_on время_начала время_окончания',
+                            'Пожалуйста, укажите временные рамки режима тишины в формате чч:мм (время московское). Команда:\n/moder_on время_начала время_окончания',
                             timeout=self.TIMEOUT
                         )
+                        self.logger.info('Отправлено сообщение в группу {}: "{}".'.format(
+                            sent.chat.id,
+                            prepare_text_for_logging(sent.text)
+                        ))
                     else:
                         self.update_moderated_chats(
                             chat_id=message.chat.id,
@@ -101,21 +141,35 @@ class Bot:
                             end_time=end_time,
                             is_active=True
                         )
-                        self.bot.send_message(
+                        self.logger.info('Установлен режим тишины ({:02d}:{:02d}-{:02d}:{:02d}) в чате {}, пользователь {} ({}).'.format(
+                            *start_time, *end_time, message.chat.id, message.from_user.id, message.from_user.username
+                        ))
+
+                        sent = self.bot.send_message(
                             message.chat.id,
                             'Ежедневный режим тишины в чате установлен. '
-                                + 'Все сообщения, отправленные с {:02d}:{:02d} до {:02d}:{:02d}, будут удаляться автоматически.\n'.format(
-                                    start_time[0], start_time[1], end_time[0], end_time[1])
+                                + 'Все сообщения, отправленные с {:02d}:{:02d} до {:02d}:{:02d} мск, будут удаляться автоматически.\n'.format(
+                                    *start_time, *end_time)
                                 + 'Для изменения временных рамок используйте команду повторно с другими параметрами.\n'
                                 + 'Для отключения режима тишины воспользуйтесь командой /moder_off.\n',
                                 timeout=self.TIMEOUT
                         )
+                        self.logger.info('Отправлено сообщение в группу {}: "{}".'.format(
+                            sent.chat.id,
+                            prepare_text_for_logging(sent.text)
+                        ))
                 else:
                     # если команду ввёл не администратор, сообщение удаляется
                     self.bot.delete_message(message.chat.id, message.id)
+                    self.logger.info('Группа {} - удалено сообщение "{}" от пользователя {} ({}).'.format(
+                        message.chat.id,
+                        prepare_text_for_logging(message.text),
+                        message.from_user.id,
+                        message.from_user.username
+                    ))
             else:
                 # в приватном чате команда обрабатывается как обычный текст
-                handle_other(message)
+                handle_message(message)
 
 
         @self.bot.message_handler(commands=['moder_off'])
@@ -123,70 +177,70 @@ class Bot:
             """Отключает режим тишины в чате."""
 
             if message.chat.type != 'private':
+                self.logger.info('Группа {} - отправлена команда "{}" пользователем {} ({}) ({})'.format(
+                    message.chat.id,
+                    prepare_text_for_logging(message.text),
+                    message.from_user.id,
+                    message.from_user.username,
+                    'админ или создатель чата' if self.is_by_admin(message) else 'не адмим'
+                ))
+
                 if self.is_by_admin(message):
                     if message.chat.id in self.moderated_chats:
                         self.update_moderated_chats(chat_id=message.chat.id, is_active=False)
-                        self.bot.send_message(
+                        self.logger.info('Режим тишины отключён в чате {} пользователем {} ({})'.format(
+                            message.chat.id, message.from_user.id, message.from_user.username
+                        ))
+
+                        sent = self.bot.send_message(
                             message.chat.id,
-                            'Режим тишины отключён. Чтобы вновь его активировать, введите команду:\n/moder_on время_начала время_окончания (формат времени - чч:мм).',
+                            'Режим тишины отключён. Чтобы вновь его активировать, введите команду:\n/moder_on время_начала время_окончания (время московское, формат - чч:мм).',
                             parse_mode='HTML',
                             timeout=self.TIMEOUT
                         )
+                        self.logger.info('Отправлено сообщение в группу {}: "{}".'.format(
+                            sent.chat.id,
+                            prepare_text_for_logging(sent.text)
+                        ))
                     else:
-                        self.bot.send_message(
+                        sent = self.bot.send_message(
                             message.chat.id,
-                            'Режим тишины ещё не активирован в этом чате. Для его активации введите команду:\n/moder_on время_начала время_окончания (формат времени - чч:мм).',
+                            'Режим тишины ещё не активирован в этом чате. Для его активации введите команду:\n/moder_on время_начала время_окончания (время московское, формат - чч:мм).',
                             parse_mode='HTML',
                             timeout=self.TIMEOUT
                         )
+                        self.logger.info('Отправлено сообщение в группу {}: "{}".'.format(
+                            sent.chat.id,
+                            prepare_text_for_logging(sent.text)
+                        ))
                 else:
                     # если команду ввёл не администратор, сообщение удаляется
                     self.bot.delete_message(message.chat.id, message.id)
+                    self.logger.info('Группа {} - удалено сообщение "{}" от пользователя {} ({}).'.format(
+                        message.chat.id,
+                        prepare_text_for_logging(message.text),
+                        message.from_user.id,
+                        message.from_user.username
+                    ))
             else:
                 # в приватном чате команда обрабатывается как обычный текст
-                handle_other(message)
+                handle_message(message)
         
-
-        @self.bot.callback_query_handler(func=lambda call: True)
-        def handle_buttons(call):
-            """Обрабатывает нажатия на кнопки."""
-            self.bot.answer_callback_query(call.id)
-
-            if call.message.chat.type == 'private':
-                if call.from_user.id in self.user_table:
-                    post, last_message_id = self.user_table[call.from_user.id]
-
-                    if last_message_id == call.message.id:
-                        while True:
-                            # получаем новые сообщения для отправки
-                            post = post.get_next(call.data)
-                            if post is None:
-                                # сообщения кончились либо ожидается ответ от пользователя
-                                break
-                            self.send(received=call.message, new_post=post)
-                            call.data = None
-                else:
-                    # пользователь ещё не нажал на "Старт" (например, нажал на кнопки,
-                    # пришедшие до перезапуска бота на сервере)
-                    self.bot.send_message(
-                        call.message.chat.id,
-                        'Пожалуйста, перезапустите бота, введя команду /start',
-                        timeout=self.TIMEOUT
-                    )
-                
-                # удаление старых кнопок
-                # time.sleep(0.5)
-                # self.bot.delete_message(call.message.chat.id, call.message.id)
-
 
         @self.bot.message_handler(content_types=[
             'audio', 'photo', 'voice', 'video', 'document',
             'text', 'location', 'contact', 'sticker'
         ])
-        def handle_other(message):
-            """Обрабатывает сообщения от пользователя (всё, кроме кнопок)."""
+        def handle_message(message):
+            """Обрабатывает сообщения от пользователя (любые)."""
 
             if message.chat.type == 'private':
+                self.logger.info('Личный чат - сообщение от пользователя {} ({}): {}.'.format(
+                    message.from_user.id, message.from_user.username,
+                    '"{}"'.format(prepare_text_for_logging(message.text))
+                        if message.content_type == 'text'
+                        else '<{}>'.format(message.content_type)
+                ))
                 if message.from_user.id in self.user_table:
                     post, _ = self.user_table[message.from_user.id]
 
@@ -199,20 +253,32 @@ class Bot:
                         self.send(received=message, new_post=post)
                         message.text = None
                 else:
-                    # пользователь ещё не нажал на "Старт" (например, нажал на кнопки,
-                    # пришедшие до перезапуска бота на сервере)
-                    self.bot.send_message(
+                    # пользователь ещё не нажал на "Старт"
+                    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=1)
+                    start_button = types.KeyboardButton(text='/start')
+                    markup.add(start_button)
+
+                    sent = self.bot.send_message(
                         message.from_user.id,
                         'Пожалуйста, перезапустите бота, введя команду /start',
+                        reply_markup=markup,
                         timeout=self.TIMEOUT
                     )
+                    self.logger.info('Отправлено сообщение {}: {}.'.format(
+                        'пользователю {} ({})'.format(
+                            message.from_user.id, message.from_user.username
+                        ) if message.chat.type == 'private'
+                            else 'в группу {}'.format(message.chat.id),
+                        '"{}"'.format(prepare_text_for_logging(sent.text))
+                            if sent.content_type == 'text' else '<{}>'.format(sent.content_type)
+                    ))
             else:
                 # удаление сообщений, отправленных во время режима тишины
                 if message.chat.id in self.moderated_chats:
                     (start_hour, start_minute), (end_hour,end_minute), is_active = self.moderated_chats[message.chat.id]
                     if is_active:
                         # проверяем, отправлено ли сообщение во время режима тишины
-                        dt = datetime.fromtimestamp(message.date).timetuple()
+                        dt = datetime.fromtimestamp(message.date, config.TZ).timetuple()
                         hour, minute = dt.tm_hour, dt.tm_min
 
                         ts_now = 60 * hour + minute
@@ -228,32 +294,55 @@ class Bot:
 
                         if is_silence_now:
                             self.bot.delete_message(message.chat.id, message.message_id)
+                            self.logger.info('Группа {}, режим тишины - удалено сообщение {} от пользователя {} ({}).'.format(
+                                message.chat.id,
+                                '"{}"'.format(prepare_text_for_logging(message.text))
+                                    if message.content_type == 'text' else '<{}>'.format(message.content_type),
+                                message.from_user.id,
+                                message.from_user.username
+                            ))
     
+
+    _need_to_shutdown = False
 
     def _shedule_loop(self):
         # каждую минуту процедура ищет чаты, в которых в эту минуту по расписанию
         # начинается режим тишины, и отправляет сообщение о начале режима тишины
         # в эти чаты
 
-        while True:
-            # вычисляем время до начала очередной минуты, и засыпаем на это время
-            sec_delta = 60 - datetime.now().second
-            time.sleep(sec_delta)
+        try:
+            while not self._need_to_shutdown:
+                # вычисляем время до начала очередной минуты, и засыпаем на это время
+                sec_delta = 60 - datetime.now(config.TZ).second
 
-            hour = datetime.now().hour
-            minute = datetime.now().minute
+                for i in range(sec_delta):
+                    if self._need_to_shutdown:
+                        return
+                    time.sleep(1)
 
-            for chat_id in self.moderated_chats:
-                (start_hour, start_minute), (end_hour,end_minute), is_active = self.moderated_chats[chat_id]
-                if is_active:
-                    if hour == start_hour and minute == start_minute:
-                        self.bot.send_message(
-                            chat_id,
-                            text="🤫 Режим тишины в чате. Сообщения в период с {:02d}:{:02d} до {:02d}:{:02d} будут автоматически удаляться.".format(
-                                start_hour, start_minute, end_hour, end_minute
-                            ),
-                            timeout=self.TIMEOUT
-                        )
+                hour = datetime.now(config.TZ).hour
+                minute = datetime.now(config.TZ).minute
+
+                for chat_id in self.moderated_chats:
+                    (start_hour, start_minute), (end_hour,end_minute), is_active = self.moderated_chats[chat_id]
+                    if is_active:
+                        if hour == start_hour and minute == start_minute:
+                            sent = self.bot.send_message(
+                                chat_id,
+                                text="🤫 Режим тишины в чате. Сообщения в период с {:02d}:{:02d} до {:02d}:{:02d} мск будут автоматически удаляться.".format(
+                                    start_hour, start_minute, end_hour, end_minute
+                                ),
+                                timeout=self.TIMEOUT
+                            )
+                            self.logger.info('Группа {} - начался режим тишины ({:02d}:{:02d}-{:02d}:{:02d})'.format(
+                                sent.chat.id, start_hour, start_minute, end_hour, end_minute
+                            ))
+                            self.logger.info('Отправлено сообщение в группу {}: "{}".'.format(
+                                sent.chat.id,
+                                prepare_text_for_logging(sent.text)
+                            ))
+        finally:
+            self.stop()
         
 
     def start(self):
@@ -270,6 +359,7 @@ class Bot:
     def stop(self):
         """Останавливает бота."""
         self.bot.stop_bot()
+        self._need_to_shutdown = True
     
 
     def is_alive(self):
@@ -351,8 +441,17 @@ class Bot:
                     file.close()
         else:
             sent = None
-            print('Неизвестный тип сообщений.')
+            self.logger.error('Неизвестный тип сообщения, чат {}.'.format(received.chat.id))
         
+        self.logger.info('Отправлено сообщение {}: {}.'.format(
+            'пользователю {} ({})'.format(
+                received.from_user.id, received.from_user.username
+            ) if received.chat.type == 'private'
+                else 'в группу {}'.format(received.chat.id),
+            '"{}"'.format(prepare_text_for_logging(sent.text))
+                if sent.content_type == 'text' else '<{}>'.format(sent.content_type)
+        ))
+
         # сохраняем id последнего отправленного сообщения для конкретного пользователя и новый пост
         self.user_table.update({ received.chat.id : [new_post, sent.id] })
 

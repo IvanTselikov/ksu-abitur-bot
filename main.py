@@ -3,20 +3,37 @@
 from project_controller import Project
 import config
 from flask import Flask
+from helper import get_logger
+from threading import Thread
+import traceback
 
 
-# запуск бота
-project = Project(config.DEFAULT_BOT_PATH)
-project.run(recompile=False, new_console=False)
+logger = get_logger('main', need_console_handler=False)
 
-# запуск сервера Flask
-app = Flask('')
+try:
+    # запуск сервера Flask
+    app = Flask('')
 
-@app.route('/')
-def home():
-    if project and project.is_alive():
-        return 'Сервер запущен, бот работает.'
-    else:
-        return 'Бот не отвечает.'
+    @app.route('/')
+    def home():
+        if project and project.is_alive():
+            response = 'Сервер запущен, бот работает.'
+            logger.info(response)
+            return response
+        else:
+            response = 'Бот не отвечает.'
+            logger.error(response)
+            return response, 500
 
-app.run(host='0.0.0.0', port=80)
+    def run_flask():
+        app.run(host='0.0.0.0', port=80)
+
+    t = Thread(target=run_flask)
+    t.start()
+
+
+    # запуск бота
+    project = Project(config.DEFAULT_BOT_PATH)
+    project.run(recompile=True, new_console=False)
+except:
+    logger.error(traceback.format_exc())

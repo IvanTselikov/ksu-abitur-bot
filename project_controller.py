@@ -9,6 +9,7 @@ from code_analyzer import CodeAnalyzer
 from helper import *
 import bot_parser
 import config
+import traceback
 
 
 class Project:
@@ -31,6 +32,8 @@ class Project:
         self.process = None  # процесс, в котором запущен бот (если запущен в новом терминале)
         self.bot = None  # бот (если запущен в текущем терминале)
         self.create_temp()
+
+        self.logger = get_logger(__name__)
 
 
     def create_temp(self):
@@ -128,14 +131,17 @@ class Project:
                 serialized = pickle.dumps(scenery)
                 with open(self.obj, 'wb') as f:
                     f.write(serialized)
-            print('=== ЗАПУСКАЕМ БОТА... ===')
+            self.logger.info('Начат запуск бота.')
             with open(self.obj, 'rb') as f:
                 token, first_message = pickle.load(f)
-            print('=== БОТ ЗАПУЩЕН! ===')
             self.bot = Bot(token, first_message)
+            self.logger.info('Бот запущен.')
             self.bot.start()
+        except bot_parser.BotParsingException as e:
+            self.logger.error('Ошибка в сценарии бота: ' + str(e))
         except Exception as e:
-            print(e)
+            self.logger.error(traceback.format_exc())
+        finally:
             input('Для выхода нажмите любую клавишу...')
 
 
@@ -148,9 +154,11 @@ class Project:
                 args.insert(2, '-c')
             self.process = subprocess.Popen(args, creationflags=subprocess.CREATE_NEW_CONSOLE)
         else:
-            # запускаем бота в текущей консоли в новом потоке
-            t = threading.Thread(target=self._runner, args=[recompile])
-            t.start()
+            # # запускаем бота в текущей консоли в новом потоке
+            # t = threading.Thread(target=self._runner, args=[recompile])
+            # t.start()
+
+            self._runner(recompile)
 
 
     def stop(self):
@@ -166,8 +174,11 @@ class Project:
 
 
     def is_alive(self):
-        return (self.process and self.process.poll() is None)\
-            or (self.bot and self.bot.is_alive())
+        try:
+            return (self.process and self.process.poll() is None)\
+                or (self.bot and self.bot.is_alive())
+        except:
+            return False
 
 
 
