@@ -22,22 +22,24 @@
 		* `venv\Scripts\activate` (активация виртуальной среды);
 		* `pip install -r requirements.txt` (установка необходимых пакетов);
 		* `set TOKEN=токен_бота` (запись токена бота в переменную окружения);
-		* `python compiler.py` (запуск бота).
+		* `python compiler.py -c` (компиляция сценария и запуск бота).
 	* Для Linux:
 		* `python3 -m venv venv`
 		* `source venv/bin/activate`
 		* `pip install -r requirements.txt`
 		* `export TOKEN=токен_бота`
-		* `python compiler.py`
+		* `python compiler.py -c`
+
+Чтобы не устанавливать при каждом запуске токен в переменную окружения, можно записать его в первую строку сценария бота (файл *bot/code.scn*, строка `бот "вставить токен сюда"`) и скомпилировать бота заново (`python compiler.py -c`). В файл сценария можно вносить и другие изменения в логику работы бота, см. [документацию языка разметки](https://docs.google.com/document/d/1tC6PNfqTeHmitKyD8wpMS2CLd9wKezziw082H6WAEDk/edit#heading=h.cdluuaxl95ww). Примечание: теги `ждатьАудио` и `ждатьТекст` в этом боте не сработают.
 
 В дальнейшем, чтобы запустить проект, достаточно будет выполнить следующие команды:
 * Для Windows:
 	* `venv\Scripts\activate`
-	* `set TOKEN=токен_бота`
+	* `set TOKEN=токен_бота`, если не записали токен в сценарии
 	* `python compiler.py`
 * Для Linux:
 	* `source venv/bin/activate`
-	* `export TOKEN=токен_бота`
+	* `export TOKEN=токен_бота`, если не записали токен в сценарии
 	* `python compiler.py`
 
 
