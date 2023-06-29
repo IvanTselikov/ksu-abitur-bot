@@ -5,10 +5,10 @@ import time
 from datetime import datetime
 from threading import Thread
 import logging
-import sys
 from bot_message import *
 from helper import decode_json, extract_time, get_logger, prepare_text_for_logging
 import config
+import traceback
 
 
 class Bot:
@@ -260,7 +260,7 @@ class Bot:
 
                     sent = self.bot.send_message(
                         message.from_user.id,
-                        'Пожалуйста, перезапустите бота, введя команду /start',
+                        'Пожалуйста, перезапустите бота, введя команду /start.',
                         reply_markup=markup,
                         timeout=self.TIMEOUT
                     )
@@ -341,8 +341,8 @@ class Bot:
                                 sent.chat.id,
                                 prepare_text_for_logging(sent.text)
                             ))
-        finally:
-            self.stop()
+        except:
+            self.logger.error(traceback.format_exc())
         
 
     def start(self):
@@ -353,7 +353,12 @@ class Bot:
         new_thread.start()
 
         # начинаем слушать бота
-        self.bot.infinity_polling(timeout=self.TIMEOUT)
+        telebot.apihelper.RETRY_ON_ERROR = True
+        while True:
+            try:
+                self.bot.infinity_polling(timeout=self.TIMEOUT)
+            except:
+                self.logger.warning('В infinity_polling() выпало исключение. Бот перезапущен.')
 
 
     def stop(self):
