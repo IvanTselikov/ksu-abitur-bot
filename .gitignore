@@ -3,8 +3,7 @@ main_window.py
 editor.py
 groupIDs.json
 # bot/bin/obj.bin
-logs/
-groupIDs.json
+# logs/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

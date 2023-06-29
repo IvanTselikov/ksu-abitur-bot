@@ -7,14 +7,6 @@ import config
 
 
 time_pattern = re.compile('^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$')
-emoji_pattern = re.compile("["
-        u'\U0001F600-\U0001F64F'  # emoticons
-        u'\U0001F300-\U0001F5FF'  # symbols & pictographs
-        u'\U0001F680-\U0001F6FF'  # transport & map symbols
-        u'\U0001F1E0-\U0001F1FF'  # flags (iOS)
-        u'\U0001F92B'
-                           "]+", flags=re.UNICODE
-)
 
 def decode_json(o):
     """Переводит все строки в json-объекте в числа, если это возможно."""
@@ -51,6 +43,9 @@ def get_logger(
         need_console_handler=True,
         need_file_handler=True
     ):
+    if not os.path.exists(config.LOGS_DIR):
+        os.makedirs(config.LOGS_DIR)
+
     logging.raiseExceptions = False
 
     logger = base_logger or logging.getLogger(name)
@@ -74,7 +69,5 @@ def get_logger(
 
 
 def prepare_text_for_logging(text: str, max_length=75):
-    # text = bytes(text).decode('unicode_escape', 'ignore')
-    # text = emoji_pattern.sub(r'', text)  # удаление эмодзи
     text = text.replace('\n', '\\n')
     return text[:max_length] + '...' if len(text) > max_length else text
