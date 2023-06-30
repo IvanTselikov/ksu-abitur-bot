@@ -9,6 +9,7 @@ import traceback
 
 
 logger = get_logger('main', need_console_handler=False)
+logger.info('main.py запущен.')
 
 try:
     # запуск сервера Flask
