@@ -16,18 +16,30 @@ try:
 
     @app.route('/')
     def home():
-        logger.info('Запрос к серверу.')
-        if project and project.is_alive():
-            response = 'Сервер запущен, бот работает.'
-            logger.info(response)
-            return response
-        else:
-            response = 'Бот не отвечает.'
+        try:
+            logger.info('Запрос к серверу.')
+            if project and project.is_alive():
+                response = 'Сервер запущен, бот работает.'
+                logger.info(response)
+                return response
+            else:
+                response = 'Бот не отвечает.'
+                logger.warning(response)
+                return response, 500
+        except:
+            response = 'Ошибка сервера.'
             logger.error(response)
+            logger.error(traceback.format_exc())
             return response, 500
 
+
     def run_flask():
-        app.run(host='0.0.0.0', port=80)
+        try:
+            app.run(host='0.0.0.0', port=80)
+        except:
+            logger.error(traceback.format_exc())
+        finally:
+            logger.warning('Сервер Flask остановлен.')
 
     t = Thread(target=run_flask)
     t.start()
@@ -36,5 +48,8 @@ try:
     # запуск бота
     project = Project(config.DEFAULT_BOT_PATH)
     project.run(recompile=True, new_console=False)
+
+    logger.warning('Бот остановлен.')
 except:
+    logger.error('Ошибка в main.py')
     logger.error(traceback.format_exc())

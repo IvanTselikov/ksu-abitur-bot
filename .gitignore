@@ -5,6 +5,7 @@
 /bot/bin/obj.bin
 /logs/
 /img
+/bot_req.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
