@@ -5,7 +5,7 @@
 /bot/bin/obj.bin
 /logs/
 /img
-# /bot_token.py
+/bot_token.py
 
 
 # Byte-compiled / optimized / DLL files
