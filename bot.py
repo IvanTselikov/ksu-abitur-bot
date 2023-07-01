@@ -342,7 +342,7 @@ class Bot:
         except Exception as e:
             self.logger.error(e)
         except KeyboardInterrupt as e:
-            self.logger.info(e)
+            self.logger.info('Ctrl+C')
             self.stop()
     
 
@@ -362,7 +362,7 @@ class Bot:
         except Exception as e:
             self.logger.error('В infinity_polling() выпало исключение: {}.'.format(e))
         except KeyboardInterrupt as e:
-            self.logger.info(e)
+            self.logger.info('Ctrl+C')
         finally:
             self.stop()
 
