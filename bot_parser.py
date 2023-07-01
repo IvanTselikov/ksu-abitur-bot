@@ -1,8 +1,9 @@
 from code_analyzer import CodeAnalyzer
 from bot_message import *
-from helper import get_logger
+from app_logging import get_logger
 
-logger = get_logger(__name__)
+
+logger = get_logger('bot_parser')
 
 
 class BotParsingException(Exception):

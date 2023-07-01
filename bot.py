@@ -6,7 +6,8 @@ from datetime import datetime
 from threading import Thread
 import logging
 from bot_message import *
-from helper import decode_json, extract_time, get_logger, prepare_text_for_logging
+from helper import decode_json, extract_time, prepare_text_for_logging
+from app_logging import get_logger
 import config
 import traceback
 
@@ -27,11 +28,13 @@ class Bot:
         """
 
         self.bot = TeleBot(token or os.getenv('TOKEN'))
+        self.is_alive = False
 
         # настройка логгера TeleBot
         telebot.logger.handlers.clear()
+
         telebot_logger = get_logger(
-            'telebot',
+            'telebot_errors',
             base_logger=telebot.logger,
             level=logging.ERROR
         )
@@ -42,9 +45,7 @@ class Bot:
         )
         console_handler.addFilter(lambda record: not record.getMessage().startswith('Exception traceback:'))
 
-
-        # логгер для собственных сообщений
-        self.logger = get_logger(__name__)
+        self.logger = get_logger('bot')
 
 
         self.user_table = {}  # таблица с записями вида: "user_id: [post, last_message_id]"
@@ -66,7 +67,6 @@ class Bot:
                 if data:
                     self.moderated_chats = json.loads(data, object_hook=decode_json)
         
-
         @self.bot.message_handler(commands=['start'])
         def register_new_user(message):
             if message.chat.type == 'private':
@@ -303,20 +303,18 @@ class Bot:
                             ))
     
 
-    _need_to_shutdown = False
-
-    def _shedule_loop(self):
+    def _schedule_loop(self):
         # каждую минуту процедура ищет чаты, в которых в эту минуту по расписанию
         # начинается режим тишины, и отправляет сообщение о начале режима тишины
         # в эти чаты
 
         try:
-            while not self._need_to_shutdown:
+            while self.is_alive:
                 # вычисляем время до начала очередной минуты, и засыпаем на это время
                 sec_delta = 60 - datetime.now(config.TZ).second
 
                 for i in range(sec_delta):
-                    if self._need_to_shutdown:
+                    if not self.is_alive:
                         return
                     time.sleep(1)
 
@@ -341,30 +339,49 @@ class Bot:
                                 sent.chat.id,
                                 prepare_text_for_logging(sent.text)
                             ))
-        except:
-            self.logger.error(traceback.format_exc())
-        
+        except Exception as e:
+            self.logger.error(e)
+        except KeyboardInterrupt as e:
+            self.logger.info(e)
+            self.stop()
+    
 
     def start(self):
         """Запускает бота в текущем потоке."""
+
+        self.is_alive = True
         
         # запускаем цикл расписания в отдельном потоке
-        new_thread = Thread(target=self._shedule_loop)
-        new_thread.start()
+        self._schedule_thread = Thread(target=self._schedule_loop)
+        self._schedule_thread.start()
 
         # начинаем слушать бота
         telebot.apihelper.RETRY_ON_ERROR = True
-        while True:
-            try:
-                self.bot.infinity_polling(timeout=self.TIMEOUT)
-            except:
-                self.logger.warning('В infinity_polling() выпало исключение. Бот перезапущен.')
+        try:
+            self.bot.infinity_polling(timeout=self.TIMEOUT)
+        except Exception as e:
+            self.logger.error('В infinity_polling() выпало исключение: {}.'.format(e))
+        except KeyboardInterrupt as e:
+            self.logger.info(e)
+        finally:
+            self.stop()
 
 
     def stop(self):
         """Останавливает бота."""
-        self.bot.stop_bot()
-        self._need_to_shutdown = True
+        try:
+            self.logger.info('Запрос на остановку бота.')
+
+            # останавливаем polling
+            self.bot.stop_bot()
+
+            # останавливаем поток с расписанием
+            self.is_alive = False
+            self._schedule_thread.join()
+
+            self.logger.info('Бот остановлен.')
+        except:
+            self.stop()
     
 
     def is_alive(self):

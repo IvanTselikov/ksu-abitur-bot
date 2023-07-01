@@ -3,13 +3,13 @@ import shutil
 import pickle
 import subprocess
 import sys
-import threading
 from bot import Bot
 from code_analyzer import CodeAnalyzer
 from helper import *
 import bot_parser
 import config
 import traceback
+from app_logging import get_logger
 
 
 class Project:
@@ -31,9 +31,8 @@ class Project:
         self.code_analyzer = CodeAnalyzer()
         self.process = None  # процесс, в котором запущен бот (если запущен в новом терминале)
         self.bot = None  # бот (если запущен в текущем терминале)
+        self.logger = get_logger('project_controller')
         self.create_temp()
-
-        self.logger = get_logger(__name__)
 
 
     def create_temp(self):
@@ -135,21 +134,19 @@ class Project:
             with open(self.obj, 'rb') as f:
                 token, first_message = pickle.load(f)
             self.bot = Bot(token, first_message)
-            self.logger.info('Бот запущен.')
+            self.logger.info('Бот запущен. Для его остановки нажмите Ctrl+C.')
             self.bot.start()
         except bot_parser.BotParsingException as e:
             self.logger.error('Ошибка в сценарии бота: ' + str(e))
         except Exception as e:
             self.logger.error(traceback.format_exc())
-        finally:
-            input('Для выхода нажмите любую клавишу...')
 
 
     def run(self, recompile, new_console=True):
         """Запускает бота."""
         if new_console:
             # запускаем бота в новой консоли
-            args = ['python', config.COMPILER_PATH, self.path]
+            args = ['python', config.MAIN_PATH, self.path]
             if recompile:
                 args.insert(2, '-c')
             self.process = subprocess.Popen(args, creationflags=subprocess.CREATE_NEW_CONSOLE)

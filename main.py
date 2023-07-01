@@ -1,56 +1,41 @@
-# файл предназначен для запуска бота на сервере replit
-
+import sys
 from project_controller import Project
 import config
-from flask import Flask
-from helper import get_logger
-from threading import Thread
-import traceback
+from app_logging import get_logger
 
 
-logger = get_logger('main', need_console_handler=False)
-logger.info('main.py запущен.')
+if __name__ == '__main__':
+    logger = get_logger('main')
 
-try:
-    # запуск сервера Flask
-    app = Flask('')
+    project = None
 
-    @app.route('/')
-    def home():
-        try:
-            logger.info('Запрос к серверу.')
-            if project and project.is_alive():
-                response = 'Сервер запущен, бот работает.'
-                logger.info(response)
-                return response
+    try:
+        args = sys.argv[1:]
+        if not args:
+            # 'python main.py' - запустить проект из папки по умолчанию
+            project = Project(config.DEFAULT_BOT_PATH)
+            project.run(recompile=False, new_console=False)
+        elif args[0] == '-c':
+            if len(args) > 1:
+                # 'python main.py -c path/to/project' - скомпилировать и запустить проект из указанной папки
+                path = args[1]
+                if not Project.is_project(path):
+                    raise Exception('Указанная папка "{}" не содержит проекта.'.format(path))
+                else:
+                    project = Project(path)
+                    project.run(recompile=True, new_console=False)
             else:
-                response = 'Бот не отвечает.'
-                logger.warning(response)
-                return response, 500
-        except:
-            response = 'Ошибка сервера.'
-            logger.error(response)
-            logger.error(traceback.format_exc())
-            return response, 500
-
-
-    def run_flask():
-        try:
-            app.run(host='0.0.0.0', port=80)
-        except:
-            logger.error(traceback.format_exc())
-        finally:
-            logger.warning('Сервер Flask остановлен.')
-
-    t = Thread(target=run_flask)
-    t.start()
-
-
-    # запуск бота
-    project = Project(config.DEFAULT_BOT_PATH)
-    project.run(recompile=True, new_console=False)
-
-    logger.warning('Бот остановлен.')
-except:
-    logger.error('Ошибка в main.py')
-    logger.error(traceback.format_exc())
+                # 'python main.py -c' - скомпилировать и запустить проект из папки по умолчанию
+                project = Project(config.DEFAULT_BOT_PATH)
+                project.run(recompile=True, new_console=False)
+        else:
+            # 'python main.py path/to/project' - запустить проект из указанной папки
+            path = args[0]
+            if not Project.is_project(path):
+                raise Exception('Указанная папка "{}" не содержит проекта.'.format(path))
+            else:
+                project = Project(path)
+                project.run(recompile=False, new_console=False)
+    finally:
+        if project and project.is_alive():
+            project.stop()
