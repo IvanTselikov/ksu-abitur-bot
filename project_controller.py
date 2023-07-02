@@ -10,6 +10,7 @@ import bot_parser
 import config
 import traceback
 from app_logging import get_logger
+from wakepy import keep
 
 
 class Project:
@@ -135,7 +136,9 @@ class Project:
                 token, first_message = pickle.load(f)
             self.bot = Bot(token, first_message)
             self.logger.info('Бот запущен. Для его остановки нажмите Ctrl+C.')
-            self.bot.start()
+
+            with keep.running() as k:  # не даём боту заснуть
+                self.bot.start()
         except bot_parser.BotParsingException as e:
             self.logger.error('Ошибка в сценарии бота: ' + str(e))
         except Exception as e:

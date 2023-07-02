@@ -86,7 +86,7 @@ class MediaPost(Post):
         if not os.path.getsize(file_path):
             raise Exception(f'Файл {file_path} не должен быть пустым.')
         if formats:
-            _, file_ext = os.path.splitext()
+            _, file_ext = os.path.splitext(file_path)
             if not file_ext in formats:
                 raise Exception(f'Файл {file_path} имеет недопустимый формат.')
         super().__init__(file_path)

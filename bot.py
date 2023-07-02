@@ -397,7 +397,7 @@ class Bot:
         new_post - пост для отправки (тип bot_message.Post)
         """
         if isinstance(new_post, TextPost):
-            sent = self.bot.send_message(received.chat.id, new_post.content, timeout=self.TIMEOUT, parse_mode='HTML')
+            sent = self.bot.send_message(received.chat.id, new_post.content, timeout=self.TIMEOUT, parse_mode='HTML', disable_web_page_preview=True)
         elif isinstance(new_post, ImagePost):
             with open(new_post.content, 'rb') as content:
                 sent = self.bot.send_photo(received.chat.id, content, timeout=self.TIMEOUT)
@@ -435,11 +435,12 @@ class Bot:
                 markup.add(new_item)
             sent = self.bot.send_message(received.chat.id, new_post.caption,
                                         reply_markup=markup, timeout=self.TIMEOUT,
-                                        parse_mode='HTML')
+                                        parse_mode='HTML', disable_web_page_preview=True)
         elif isinstance(new_post, GroupPost):
             if not new_post.content:  # сгруппированное сообщение содержит только текст
                 sent = self.bot.send_message(
-                    received.chat.id, new_post.caption, timeout=self.TIMEOUT
+                    received.chat.id, new_post.caption, timeout=self.TIMEOUT,
+                    disable_web_page_preview=True
                 )
             else:
                 medias = []
