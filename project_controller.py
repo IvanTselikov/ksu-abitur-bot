@@ -137,8 +137,7 @@ class Project:
             self.bot = Bot(token, first_message)
             self.logger.info('Бот запущен. Для его остановки нажмите Ctrl+C.')
 
-            with keep.running() as k:  # не даём боту заснуть
-                self.bot.start()
+            self.bot.start()
         except bot_parser.BotParsingException as e:
             self.logger.error('Ошибка в сценарии бота: ' + str(e))
         except Exception as e:
