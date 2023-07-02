@@ -1,5 +1,6 @@
 import os
 import pytz
+from datetime import datetime, timezone, timedelta
 from bot_token import TOKEN
 
 
@@ -18,8 +19,10 @@ DEFAULT_BOT_PATH = f'{SRCCODE_PATH}bot{os.sep}'
 # путь до хранилища с информацией обо всех модерируемых чатах
 STORAGE_PATH = f'{SRCCODE_PATH}groupIDs.json'
 
-TZINFO = 'Europe/Moscow'  # московское время
-TZ = pytz.timezone(TZINFO)
+
+timezone_offset = +3  # московское время
+TZ = timezone(timedelta(hours=timezone_offset))
+
 
 LOGS_DIR = SRCCODE_PATH + 'logs' + os.sep
 LOGS_INTERVAL = {
