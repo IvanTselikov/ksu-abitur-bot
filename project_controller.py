@@ -137,7 +137,12 @@ class Project:
             self.bot = Bot(token, first_message)
             self.logger.info('Бот запущен. Для его остановки нажмите Ctrl+C.')
 
-            self.bot.start()
+            try:
+                with keep.running() as m:  # не даём боту уснуть
+                    self.bot.start()
+            except:
+                # wakepy работает не на всех ОС
+                self.bot.start()
         except bot_parser.BotParsingException as e:
             self.logger.error('Ошибка в сценарии бота: ' + str(e))
         except Exception as e:

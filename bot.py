@@ -6,7 +6,7 @@ from datetime import datetime
 from threading import Thread
 import logging
 from bot_message import *
-from helper import decode_json, extract_time, prepare_text_for_logging
+from helper import decode_json, extract_time, prepare_text_for_logging, msk_now
 from app_logging import get_logger
 import config
 import traceback
@@ -311,15 +311,15 @@ class Bot:
         try:
             while self.is_alive:
                 # вычисляем время до начала очередной минуты, и засыпаем на это время
-                sec_delta = 60 - datetime.now(config.TZ).second
+                sec_delta = 60 - msk_now().second
 
                 for i in range(sec_delta):
                     if not self.is_alive:
                         return
                     time.sleep(1)
 
-                hour = datetime.now(config.TZ).hour
-                minute = datetime.now(config.TZ).minute
+                hour = msk_now().hour
+                minute = msk_now().minute
 
                 for chat_id in self.moderated_chats:
                     (start_hour, start_minute), (end_hour,end_minute), is_active = self.moderated_chats[chat_id]

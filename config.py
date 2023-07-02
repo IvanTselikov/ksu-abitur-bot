@@ -1,6 +1,5 @@
 import os
 import pytz
-from datetime import datetime, timezone, timedelta
 from bot_token import TOKEN
 
 
@@ -20,8 +19,9 @@ DEFAULT_BOT_PATH = f'{SRCCODE_PATH}bot{os.sep}'
 STORAGE_PATH = f'{SRCCODE_PATH}groupIDs.json'
 
 
-timezone_offset = +3  # московское время
-TZ = timezone(timedelta(hours=timezone_offset))
+TZ_OFFSET = +3  # московское время
+TZ_STR = 'Europe/Moscow'
+TZ = pytz.timezone(TZ_STR)
 
 
 LOGS_DIR = SRCCODE_PATH + 'logs' + os.sep
