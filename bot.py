@@ -358,6 +358,7 @@ class Bot:
         # начинаем слушать бота
         telebot.apihelper.RETRY_ON_ERROR = True
         try:
+            self.logger.info('Бот запущен. Для его остановки нажмите Ctrl+C.')
             self.bot.infinity_polling(timeout=self.TIMEOUT)
         except Exception as e:
             self.logger.error('В infinity_polling() выпало исключение: {}.'.format(e))

@@ -10,6 +10,7 @@ import bot_parser
 import config
 import traceback
 from app_logging import get_logger
+from wakepy import keep
 
 
 class Project:
@@ -134,9 +135,18 @@ class Project:
             with open(self.obj, 'rb') as f:
                 token, first_message = pickle.load(f)
             self.bot = Bot(token, first_message)
-            self.logger.info('Бот запущен. Для его остановки нажмите Ctrl+C.')
 
-            self.bot.start()
+            try:
+                with keep.running() as m:  # не даём боту заснуть
+                    if m.success:
+                        self.logger.info('Включён режим "без сна": пока бот работает, отключён автоматический переход ОС в спящий режим.')
+                    else:
+                        raise Exception()
+                    self.bot.start()
+            except:
+                # не удалось включить режим "без сна" либо ОС не поддерживает wakepy
+                self.logger.warning('Не удалось активировать режим "без сна". Пожалуйста, проследите за тем, чтобы ОС не перешла в спящий режим во время работы бота, иначе бот будет приостановлен.')
+                self.bot.start()
         except bot_parser.BotParsingException as e:
             self.logger.error('Ошибка в сценарии бота: ' + str(e))
         except Exception as e:
