@@ -106,7 +106,7 @@ class Bot:
                     prepare_text_for_logging(message.text),
                     message.from_user.id,
                     message.from_user.username,
-                    'админ или создатель чата' if self.is_by_admin(message) else 'не адмим'
+                    'админ или создатель чата' if self.is_by_admin(message) else 'не админ'
                 ))
                 if self.is_by_admin(message):
                     start_time = None
@@ -182,7 +182,7 @@ class Bot:
                     prepare_text_for_logging(message.text),
                     message.from_user.id,
                     message.from_user.username,
-                    'админ или создатель чата' if self.is_by_admin(message) else 'не адмим'
+                    'админ или создатель чата' if self.is_by_admin(message) else 'не админ'
                 ))
 
                 if self.is_by_admin(message):
